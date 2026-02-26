@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>⚡ Ladekosten-Tracker</title>
+
+<!-- PWA Meta Tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ladekosten">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="description" content="E-Auto Ladekosten-Tracker">
+
+<!-- PWA Icon (generated via canvas, injected by script below) -->
+<link id="apple-touch-icon" rel="apple-touch-icon" sizes="180x180">
+<link id="pwa-icon" rel="icon" type="image/png" sizes="192x192">
+
+<!-- Inline Web App Manifest -->
+<script>
+(function() {
+  // Generate icon via canvas
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d');
+  // Background gradient
+  const bg = ctx.createLinearGradient(0, 0, 512, 512);
+  bg.addColorStop(0, '#0a0e1a');
+  bg.addColorStop(1, '#111827');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, 512, 512, 80);
+  ctx.fill();
+  // Glow circle
+  const glow = ctx.createRadialGradient(256, 256, 0, 256, 256, 200);
+  glow.addColorStop(0, 'rgba(0,229,255,0.15)');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, 512, 512);
+  // Lightning bolt ⚡
+  ctx.fillStyle = '#00e5ff';
+  ctx.shadowColor = '#00e5ff';
+  ctx.shadowBlur = 30;
+  ctx.font = 'bold 280px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('⚡', 256, 272);
+  const iconUrl = c.toDataURL('image/png');
+  document.getElementById('apple-touch-icon').href = iconUrl;
+  document.getElementById('pwa-icon').href = iconUrl;
+
+  // Inject manifest
+  const manifest = {
+    name: 'Ladekosten-Tracker',
+    short_name: 'Ladekosten',
+    description: 'E-Auto Ladekosten verfolgen',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#0a0e1a',
+    theme_color: '#0a0e1a',
+    orientation: 'portrait-primary',
+    icons: [
+      { src: iconUrl, sizes: '192x192', type: 'image/png' },
+      { src: iconUrl, sizes: '512x512', type: 'image/png' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  const manifestUrl = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = manifestUrl;
+  document.head.appendChild(link);
+})();
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1c2537;
+    --border: #2a3a55;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    background-image: 
+      radial-gradient(ellipse at 20% 20%, rgba(0,229,255,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(124,58,237,0.05) 0%, transparent 50%);
+  }
+
+  header {
+    padding: 2rem 2rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+  }
+
+  h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+
+  .subtitle { color: var(--muted); font-size: 0.8rem; font-family: 'Space Mono', monospace; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+
+  /* Stats Grid */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 0.5rem; }
+  .stat-value { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.03em; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.cyan { color: var(--accent); }
+  .stat-value.purple { color: #a78bfa; }
+  .stat-unit { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; font-family: 'Space Mono', monospace; }
+
+  /* Form */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .form-title {
+    font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .form-title .dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+  input, select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.65rem 0.85rem;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  .btn-add {
+    margin-top: 1rem;
+    background: linear-gradient(135deg, var(--accent), #0099bb);
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 2rem;
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn-add:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-add:active { transform: translateY(0); }
+
+  /* Table */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    padding: 1.25rem 1.75rem;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-title { font-size: 1rem; font-weight: 700; }
+
+  .filter-tabs { display: flex; gap: 0.4rem; }
+  .tab {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.3rem 0.75rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active, .tab:hover { background: var(--accent); border-color: var(--accent); color: #000; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    padding: 0.75rem 1.75rem;
+    text-align: left;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-weight: 400;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.85rem 1.75rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(42,58,85,0.5);
+    font-family: 'Space Mono', monospace;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,229,255,0.03); }
+
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .badge-ac { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge-dc { background: rgba(0,229,255,0.15); color: var(--accent); }
+  .badge-home { background: rgba(245,158,11,0.15); color: var(--yellow); }
+
+  .cost-value { color: var(--accent); font-weight: 700; }
+  .kwh-value { color: #a78bfa; }
+
+  .btn-del {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.3rem 0.5rem;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: all 0.2s;
+  }
+  .btn-del:hover { border-color: var(--red); color: var(--red); }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 2;
+  }
+  .empty-state .icon { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
+
+  /* Chart */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.75rem;
+    margin-top: 1.5rem;
+  }
+  .chart-title { font-size: 1rem; font-weight: 700; margin-bottom: 1.25rem; }
+
+  .bar-chart { display: flex; align-items: flex-end; gap: 0.5rem; height: 120px; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+  .bar {
+    width: 100%;
+    background: linear-gradient(180deg, var(--accent), var(--accent2));
+    border-radius: 6px 6px 0 0;
+    min-height: 4px;
+    transition: height 0.5s ease;
+    position: relative;
+  }
+  .bar:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: -28px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.65rem;
+    font-family: 'Space Mono', monospace;
+    white-space: nowrap;
+    color: var(--text);
+    z-index: 10;
+  }
+  .bar-label { font-size: 0.6rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+  @media (max-width: 600px) {
+    header { padding: 1.25rem; }
+    .container { padding: 1rem; }
+    th:nth-child(3), td:nth-child(3),
+    th:nth-child(5), td:nth-child(5) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡</div>
+  <div>
+    <h1>Lade<span>kosten</span>-Tracker</h1>
+    <div class="subtitle">E-Auto // Kostenübersicht</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Gesamt kosten</div>
+      <div class="stat-value green" id="total-cost">0,00 €</div>
+      <div class="stat-unit">alle Ladevorgänge</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Geladene Energie</div>
+      <div class="stat-value cyan" id="total-kwh">0,0 kWh</div>
+      <div class="stat-unit">kumuliert</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ø Preis / kWh</div>
+      <div class="stat-value purple" id="avg-price">—</div>
+      <div class="stat-unit">Durchschnitt</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ladevorgänge</div>
+      <div class="stat-value" id="total-sessions">0</div>
+      <div class="stat-unit">eingetragen</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Verbrauch / 100 km</div>
+      <div class="stat-value" id="consumption" style="color:#f59e0b">—</div>
+      <div class="stat-unit" id="consumption-sub">km-Stand eingeben ↓</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Kosten / 100 km</div>
+      <div class="stat-value" id="cost-per-100" style="color:#fb923c">—</div>
+      <div class="stat-unit" id="cost-per-100-sub">km-Stand eingeben ↓</div>
+    </div>
+  </div>
+
+  <!-- Odometer -->
+  <div class="form-card" style="margin-bottom:1rem">
+    <div class="form-title"><span class="dot" style="background:var(--yellow)"></span> km-Stand für Verbrauchsberechnung</div>
+    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))">
+      <div class="field">
+        <label>km-Stand erste Ladung</label>
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <input type="number" id="km-start" placeholder="z.B. 1000" min="0" oninput="calcConsumption()" style="flex:1">
+          <button id="km-start-lock" onclick="toggleKmStartLock()" title="Fixieren" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:0.55rem 0.65rem;color:var(--muted);cursor:pointer;font-size:0.85rem;transition:all 0.2s;white-space:nowrap">🔓</button>
+        </div>
+        <div id="km-start-locked-hint" style="display:none;font-size:0.65rem;font-family:'Space Mono',monospace;color:var(--green);margin-top:0.3rem">✓ Fixiert — wird gespeichert</div>
+      </div>
+      <div class="field">
+        <label>km-Stand letzte Ladung</label>
+        <input type="number" id="km-end" placeholder="z.B. 15000" min="0" oninput="calcConsumption()">
+      </div>
+    </div>
+    <div id="km-result" style="margin-top:0.75rem;font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--muted)">
+      Gib beide km-Stände ein um Verbrauch und Kosten pro 100 km zu berechnen.
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="form-card">
+    <div class="form-title"><span class="dot"></span> Neuen Ladevorgang hinzufügen</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Datum</label>
+        <input type="date" id="inp-date">
+      </div>
+      <div class="field">
+        <label>Ladeort</label>
+        <input type="text" id="inp-location" placeholder="z.B. Zuhause, IONITY..." value="Wallbox">
+      </div>
+      <div class="field">
+        <label>kWh geladen</label>
+        <input type="number" id="inp-kwh" placeholder="0,0" step="0.1" min="0">
+      </div>
+      <div class="field">
+        <label>Kosten (€)</label>
+        <input type="number" id="inp-cost" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label>Ladetyp</label>
+        <select id="inp-type">
+          <option value="AC">AC (Wechselstrom)</option>
+          <option value="DC">DC (Schnellladung)</option>
+          <option value="Zuhause" selected>Zuhause / Wallbox</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Notiz (optional)</label>
+        <input type="text" id="inp-note" placeholder="Bemerkung...">
+      </div>
+    </div>
+    <button class="btn-add" onclick="addSession()">+ Eintrag speichern</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Ladeverlauf</div>
+      <div class="filter-tabs">
+        <button class="tab active" onclick="setFilter('all', this)">Alle</button>
+        <button class="tab" onclick="setFilter('AC', this)">AC</button>
+        <button class="tab" onclick="setFilter('DC', this)">DC</button>
+        <button class="tab" onclick="setFilter('Zuhause', this)">Zuhause</button>
+      </div>
+    </div>
+    <div id="table-wrap">
+      <div class="empty-state">
+        <span class="icon">🔌</span>
+        Noch keine Ladevorgänge eingetragen.<br>
+        Füge deinen ersten Eintrag hinzu!
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-card">
+    <div class="chart-title">📊 Kosten der letzten Monate</div>
+    <div class="bar-chart" id="bar-chart">
+      <div class="empty-state" style="width:100%;font-size:0.75rem;padding:1rem;">Noch keine Daten für Chart</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2rem;width:min(500px,92vw);position:relative;">
+    <div style="font-weight:800;font-size:1.1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:0.5rem;">
+      <span style="width:8px;height:8px;background:var(--accent);border-radius:50%;display:inline-block"></span>
+      Eintrag bearbeiten
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+      <div class="field"><label>Datum</label><input type="date" id="edit-date"></div>
+      <div class="field"><label>Ladeort</label><input type="text" id="edit-location"></div>
+      <div class="field"><label>kWh geladen</label><input type="number" id="edit-kwh" step="0.1" min="0"></div>
+      <div class="field"><label>Kosten (€)</label><input type="number" id="edit-cost" step="0.01" min="0"></div>
+      <div class="field"><label>Ladetyp</label>
+        <select id="edit-type">
+          <option value="AC">AC (Wechselstrom)</option>
+          <option value="DC">DC (Schnellladung)</option>
+          <option value="Zuhause">Zuhause / Wallbox</option>
+        </select>
+      </div>
+      <div class="field"><label>Notiz</label><input type="text" id="edit-note" placeholder="optional"></div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
+      <button class="btn-add" onclick="saveEdit()" style="flex:1">✓ Speichern</button>
+      <button onclick="closeEdit()" style="flex:1;background:transparent;border:1px solid var(--border);border-radius:10px;padding:0.75rem;color:var(--muted);font-family:Syne,sans-serif;font-weight:700;cursor:pointer;">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const PRELOADED = [
+    { id: 1, date: '2025-12-23', location: 'Wallbox', kwh: 43.08, cost: 10.77, type: 'Zuhause', note: '14:26' },
+    { id: 2, date: '2025-12-23', location: 'Wallbox', kwh: 35.35, cost: 8.84, type: 'Zuhause', note: '15:49' },
+    { id: 3, date: '2025-12-19', location: 'Wallbox', kwh: 43.86, cost: 10.97, type: 'Zuhause', note: '08:54' },
+    { id: 4, date: '2025-12-16', location: 'Wallbox', kwh: 41.70, cost: 10.43, type: 'Zuhause', note: '16:36' },
+    { id: 5, date: '2025-12-13', location: 'Wallbox', kwh: 19.91, cost: 4.98, type: 'Zuhause', note: '15:03' },
+    { id: 6, date: '2025-12-12', location: 'Wallbox', kwh: 20.81, cost: 5.20, type: 'Zuhause', note: '15:23' },
+    { id: 7, date: '2025-12-10', location: 'Wallbox', kwh: 38.18, cost: 9.55, type: 'Zuhause', note: '15:51' },
+    { id: 8, date: '2025-12-09', location: 'Wallbox', kwh: 21.37, cost: 5.34, type: 'Zuhause', note: '06:30' },
+    { id: 9, date: '2025-12-04', location: 'Wallbox', kwh: 49.87, cost: 12.47, type: 'Zuhause', note: '18:08' },
+    { id: 10, date: '2025-12-04', location: 'Wallbox', kwh: 12.17, cost: 3.04, type: 'Zuhause', note: '08:37' },
+    { id: 11, date: '2025-12-01', location: 'Wallbox', kwh: 26.94, cost: 6.74, type: 'Zuhause', note: '19:28' },
+    { id: 12, date: '2025-12-01', location: 'Wallbox', kwh: 10.29, cost: 2.57, type: 'Zuhause', note: '15:40' },
+    { id: 13, date: '2025-11-28', location: 'Wallbox', kwh: 26.75, cost: 6.69, type: 'Zuhause', note: '18:23' },
+    { id: 14, date: '2025-11-23', location: 'Wallbox', kwh: 49.57, cost: 12.39, type: 'Zuhause', note: '17:52' },
+    { id: 15, date: '2025-11-21', location: 'Wallbox', kwh: 40.54, cost: 10.14, type: 'Zuhause', note: '21:38' },
+    { id: 16, date: '2025-11-21', location: 'Wallbox', kwh: 4.45, cost: 1.11, type: 'Zuhause', note: '20:49' },
+    { id: 17, date: '2025-11-18', location: 'Wallbox', kwh: 51.29, cost: 12.82, type: 'Zuhause', note: '08:15' },
+    { id: 18, date: '2025-11-07', location: 'Wallbox', kwh: 42.20, cost: 10.55, type: 'Zuhause', note: '17:53' },
+    { id: 19, date: '2025-10-31', location: 'Wallbox', kwh: 51.55, cost: 12.89, type: 'Zuhause', note: '20:51' },
+    { id: 20, date: '2025-10-31', location: 'Wallbox', kwh: 4.34, cost: 1.09, type: 'Zuhause', note: '20:17' },
+    { id: 21, date: '2025-10-30', location: 'Wallbox', kwh: 33.17, cost: 8.29, type: 'Zuhause', note: '22:19' },
+    { id: 22, date: '2025-10-29', location: 'Wallbox', kwh: 24.94, cost: 6.24, type: 'Zuhause', note: '19:21' },
+    { id: 23, date: '2025-10-28', location: 'Wallbox', kwh: 15.06, cost: 3.77, type: 'Zuhause', note: '09:14' },
+    { id: 24, date: '2025-10-26', location: 'Wallbox', kwh: 13.81, cost: 3.45, type: 'Zuhause', note: '13:59' },
+    { id: 25, date: '2025-10-19', location: 'Wallbox', kwh: 43.94, cost: 10.99, type: 'Zuhause', note: '14:42' },
+    { id: 26, date: '2025-10-15', location: 'Wallbox', kwh: 18.68, cost: 4.67, type: 'Zuhause', note: '09:51' },
+    { id: 27, date: '2025-10-11', location: 'Wallbox', kwh: 18.29, cost: 4.57, type: 'Zuhause', note: '16:43' },
+    { id: 28, date: '2025-10-11', location: 'Wallbox', kwh: 17.98, cost: 4.50, type: 'Zuhause', note: '14:57' },
+    { id: 29, date: '2025-10-09', location: 'Wallbox', kwh: 5.53, cost: 1.38, type: 'Zuhause', note: '08:41' },
+    { id: 30, date: '2025-10-09', location: 'Wallbox', kwh: 0.28, cost: 0.07, type: 'Zuhause', note: '07:21' },
+    { id: 31, date: '2025-10-08', location: 'Wallbox', kwh: 21.43, cost: 5.36, type: 'Zuhause', note: '18:36' },
+    { id: 32, date: '2025-10-07', location: 'Wallbox', kwh: 34.10, cost: 8.53, type: 'Zuhause', note: '16:27' },
+    { id: 33, date: '2025-10-04', location: 'Wallbox', kwh: 47.52, cost: 11.88, type: 'Zuhause', note: '14:15' },
+    { id: 34, date: '2025-10-03', location: 'Wallbox', kwh: 20.68, cost: 5.17, type: 'Zuhause', note: '10:37' },
+    { id: 35, date: '2025-10-01', location: 'Wallbox', kwh: 46.02, cost: 11.51, type: 'Zuhause', note: '16:12' },
+    { id: 36, date: '2025-09-28', location: 'Wallbox', kwh: 21.86, cost: 5.47, type: 'Zuhause', note: '16:12' },
+    { id: 37, date: '2025-09-27', location: 'Wallbox', kwh: 22.58, cost: 5.65, type: 'Zuhause', note: '17:14' },
+    { id: 38, date: '2025-09-23', location: 'Wallbox', kwh: 50.35, cost: 12.59, type: 'Zuhause', note: '19:26' },
+    { id: 39, date: '2025-09-15', location: 'Wallbox', kwh: 44.12, cost: 11.03, type: 'Zuhause', note: '17:12' },
+    { id: 40, date: '2025-09-14', location: 'Wallbox', kwh: 24.45, cost: 6.11, type: 'Zuhause', note: '14:32' },
+    { id: 41, date: '2025-09-14', location: 'Wallbox', kwh: 25.91, cost: 6.48, type: 'Zuhause', note: '11:58' },
+    { id: 42, date: '2025-09-13', location: 'Wallbox', kwh: 4.82, cost: 1.21, type: 'Zuhause', note: '17:15' },
+    { id: 43, date: '2025-09-13', location: 'Wallbox', kwh: 7.62, cost: 1.91, type: 'Zuhause', note: '13:16' },
+    { id: 44, date: '2025-09-13', location: 'Wallbox', kwh: 29.09, cost: 7.27, type: 'Zuhause', note: '10:03' },
+    { id: 45, date: '2025-09-12', location: 'Wallbox', kwh: 18.76, cost: 4.69, type: 'Zuhause', note: '19:27' },
+    { id: 46, date: '2025-09-09', location: 'Wallbox', kwh: 19.93, cost: 4.98, type: 'Zuhause', note: '17:27' },
+    { id: 47, date: '2025-09-07', location: 'Wallbox', kwh: 38.31, cost: 9.58, type: 'Zuhause', note: '10:55' },
+    { id: 48, date: '2025-09-03', location: 'Wallbox', kwh: 44.85, cost: 11.21, type: 'Zuhause', note: '12:19' },
+    { id: 49, date: '2025-08-30', location: 'Wallbox', kwh: 32.86, cost: 8.22, type: 'Zuhause', note: '12:21' },
+    { id: 50, date: '2025-08-26', location: 'Wallbox', kwh: 39.28, cost: 9.82, type: 'Zuhause', note: '16:13' },
+    { id: 51, date: '2025-08-25', location: 'Wallbox', kwh: 21.99, cost: 5.50, type: 'Zuhause', note: '18:43' },
+    { id: 52, date: '2025-08-23', location: 'Wallbox', kwh: 40.91, cost: 10.23, type: 'Zuhause', note: '10:46' },
+    { id: 53, date: '2025-08-20', location: 'Wallbox', kwh: 23.74, cost: 5.94, type: 'Zuhause', note: '15:07' },
+    { id: 54, date: '2025-08-16', location: 'Wallbox', kwh: 32.33, cost: 8.08, type: 'Zuhause', note: '13:38' },
+    { id: 55, date: '2025-08-15', location: 'Wallbox', kwh: 19.78, cost: 4.95, type: 'Zuhause', note: '12:44' },
+    { id: 56, date: '2025-08-12', location: 'Wallbox', kwh: 35.45, cost: 8.86, type: 'Zuhause', note: '15:53' },
+    { id: 57, date: '2025-08-10', location: 'Wallbox', kwh: 35.59, cost: 8.90, type: 'Zuhause', note: '01:08' },
+    { id: 58, date: '2025-08-09', location: 'Wallbox', kwh: 12.98, cost: 3.25, type: 'Zuhause', note: '17:11' },
+    { id: 59, date: '2025-08-08', location: 'Wallbox', kwh: 48.31, cost: 12.08, type: 'Zuhause', note: '23:58' },
+    { id: 60, date: '2025-08-08', location: 'Wallbox', kwh: 6.06, cost: 1.52, type: 'Zuhause', note: '08:13' },
+    { id: 61, date: '2025-08-07', location: 'Wallbox', kwh: 30.24, cost: 7.56, type: 'Zuhause', note: '19:25' },
+    { id: 62, date: '2025-08-03', location: 'Wallbox', kwh: 37.12, cost: 9.28, type: 'Zuhause', note: '23:17' },
+    { id: 63, date: '2025-07-30', location: 'Wallbox', kwh: 24.56, cost: 6.14, type: 'Zuhause', note: '17:41' },
+    { id: 64, date: '2025-07-30', location: 'Wallbox', kwh: 13.47, cost: 3.37, type: 'Zuhause', note: '08:44' },
+    { id: 65, date: '2025-07-26', location: 'Wallbox', kwh: 5.31, cost: 1.33, type: 'Zuhause', note: '05:57' },
+    { id: 66, date: '2025-07-25', location: 'Wallbox', kwh: 14.40, cost: 3.60, type: 'Zuhause', note: '21:39' },
+    { id: 67, date: '2025-07-15', location: 'Wallbox', kwh: 23.98, cost: 6.00, type: 'Zuhause', note: '19:01 (Datum ca.)' },
+    { id: 68, date: '2025-07-15', location: 'Wallbox', kwh: 6.57, cost: 1.64, type: 'Zuhause', note: '17:01 (Datum ca.)' },
+    { id: 69, date: '2025-07-15', location: 'Wallbox', kwh: 11.97, cost: 2.99, type: 'Zuhause', note: '05:52 (Datum ca.)' },
+    { id: 70, date: '2025-07-15', location: 'Wallbox', kwh: 15.30, cost: 3.83, type: 'Zuhause', note: '17:34 (Datum ca.)' },
+    { id: 71, date: '2025-12-31', location: 'EnBW', kwh: 216.60, cost: 110.47, type: 'DC', note: '0,51 €/kWh' },
+    { id: 72, date: '2025-12-31', location: 'EWE Go', kwh: 132.75, cost: 69.03, type: 'DC', note: '0,52 €/kWh' },
+    { id: 73, date: '2025-12-31', location: 'Aral Pulse', kwh: 142.78, cost: 78.53, type: 'DC', note: '0,55 €/kWh' },
+  ];
+
+  // Merge preloaded data with localStorage (preloaded as fallback if localStorage empty)
+  const stored = JSON.parse(localStorage.getItem('ev-sessions') || 'null');
+  let sessions;
+  if (stored && stored.length > 0) {
+    // Merge: add preloaded entries not already in stored (by id)
+    const storedIds = new Set(stored.map(s => s.id));
+    const merged = [...stored];
+    for (const p of PRELOADED) {
+      if (!storedIds.has(p.id)) merged.push(p);
+    }
+    merged.sort((a, b) => b.date.localeCompare(a.date));
+    sessions = merged;
+  } else {
+    sessions = [...PRELOADED];
+  }
+  let currentFilter = 'all';
+
+  // Set today as default date
+  document.getElementById('inp-date').valueAsDate = new Date();
+
+  function save() {
+    localStorage.setItem('ev-sessions', JSON.stringify(sessions));
+  }
+
+
+  function addSession() {
+    const date = document.getElementById('inp-date').value;
+    const location = document.getElementById('inp-location').value.trim();
+    const kwh = parseFloat(document.getElementById('inp-kwh').value);
+    const cost = parseFloat(document.getElementById('inp-cost').value);
+    const type = document.getElementById('inp-type').value;
+    const note = document.getElementById('inp-note').value.trim();
+
+    if (!date || !location || isNaN(kwh) || kwh <= 0 || isNaN(cost) || cost < 0) {
+      alert('Bitte Datum, Ort, kWh und Kosten ausfüllen.');
+      return;
+    }
+
+    sessions.unshift({ id: Date.now(), date, location, kwh, cost, type, note });
+    save();
+    render();
+
+    document.getElementById('inp-location').value = 'Wallbox';
+    document.getElementById('inp-kwh').value = '';
+    document.getElementById('inp-cost').value = '';
+    document.getElementById('inp-note').value = '';
+    document.getElementById('inp-type').value = 'Zuhause';
+    document.getElementById('inp-date').valueAsDate = new Date();
+  }
+
+  let editingId = null;
+
+  function editSession(id) {
+    const s = sessions.find(x => x.id === id);
+    if (!s) return;
+    editingId = id;
+    document.getElementById('edit-date').value = s.date;
+    document.getElementById('edit-location').value = s.location;
+    document.getElementById('edit-kwh').value = s.kwh;
+    document.getElementById('edit-cost').value = s.cost;
+    document.getElementById('edit-type').value = s.type;
+    document.getElementById('edit-note').value = s.note || '';
+    const modal = document.getElementById('edit-modal');
+    modal.style.display = 'flex';
+  }
+
+  function saveEdit() {
+    const date = document.getElementById('edit-date').value;
+    const location = document.getElementById('edit-location').value.trim();
+    const kwh = parseFloat(document.getElementById('edit-kwh').value);
+    const cost = parseFloat(document.getElementById('edit-cost').value);
+    const type = document.getElementById('edit-type').value;
+    const note = document.getElementById('edit-note').value.trim();
+    if (!date || !location || isNaN(kwh) || kwh <= 0 || isNaN(cost) || cost < 0) {
+      alert('Bitte alle Pflichtfelder ausfüllen.');
+      return;
+    }
+    const idx = sessions.findIndex(x => x.id === editingId);
+    if (idx !== -1) {
+      sessions[idx] = { ...sessions[idx], date, location, kwh, cost, type, note };
+      sessions.sort((a, b) => b.date.localeCompare(a.date));
+      save();
+      render();
+      calcConsumption();
+    }
+    closeEdit();
+  }
+
+  function closeEdit() {
+    document.getElementById('edit-modal').style.display = 'none';
+    editingId = null;
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEdit();
+  });
+
+  function deleteSession(id) {
+    sessions = sessions.filter(s => s.id !== id);
+    save();
+    render();
+  }
+
+  function setFilter(f, el) {
+    currentFilter = f;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    render();
+  }
+
+  // Restore locked km-start from localStorage
+  (function() {
+    const saved = localStorage.getItem('km-start-locked');
+    if (saved !== null) {
+      const inp = document.getElementById('km-start');
+      inp.value = saved;
+      inp.readOnly = true;
+      inp.style.opacity = '0.6';
+      inp.style.cursor = 'not-allowed';
+      document.getElementById('km-start-lock').textContent = '🔒';
+      document.getElementById('km-start-lock').style.borderColor = 'var(--green)';
+      document.getElementById('km-start-lock').style.color = 'var(--green)';
+      document.getElementById('km-start-locked-hint').style.display = 'block';
+    }
+  })();
+
+  function toggleKmStartLock() {
+    const inp = document.getElementById('km-start');
+    const btn = document.getElementById('km-start-lock');
+    const hint = document.getElementById('km-start-locked-hint');
+    const isLocked = inp.readOnly;
+
+    if (isLocked) {
+      // Unlock
+      inp.readOnly = false;
+      inp.style.opacity = '1';
+      inp.style.cursor = '';
+      btn.textContent = '🔓';
+      btn.style.borderColor = 'var(--border)';
+      btn.style.color = 'var(--muted)';
+      hint.style.display = 'none';
+      localStorage.removeItem('km-start-locked');
+    } else {
+      // Lock — only if there's a value
+      const val = inp.value.trim();
+      if (!val) { alert('Bitte zuerst einen km-Stand eingeben.'); return; }
+      inp.readOnly = true;
+      inp.style.opacity = '0.6';
+      inp.style.cursor = 'not-allowed';
+      btn.textContent = '🔒';
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color = 'var(--green)';
+      hint.style.display = 'block';
+      localStorage.setItem('km-start-locked', val);
+    }
+  }
+
+  function calcConsumption() {
+    const kmStart = parseFloat(document.getElementById('km-start').value);
+    const kmEnd = parseFloat(document.getElementById('km-end').value);
+    const totalKwh = sessions.reduce((a, s) => a + s.kwh, 0);
+    const totalCost = sessions.reduce((a, s) => a + s.cost, 0);
+    const result = document.getElementById('km-result');
+
+    if (!isNaN(kmStart) && !isNaN(kmEnd) && kmEnd > kmStart && totalKwh > 0) {
+      const km = kmEnd - kmStart;
+      const kwhPer100 = (totalKwh / km) * 100;
+      const costPer100 = (totalCost / km) * 100;
+
+      document.getElementById('consumption').textContent = kwhPer100.toLocaleString('de-DE', {maximumFractionDigits: 1}) + ' kWh';
+      document.getElementById('consumption-sub').textContent = `über ${km.toLocaleString('de-DE')} km`;
+      document.getElementById('cost-per-100').textContent = fmt(costPer100) + ' €';
+      document.getElementById('cost-per-100-sub').textContent = `${fmt(totalCost)} € gesamt`;
+      result.innerHTML = `<span style="color:var(--green)">✓</span> <strong style="color:var(--text)">${km.toLocaleString('de-DE')} km</strong> gefahren · <strong style="color:var(--accent)">${kwhPer100.toLocaleString('de-DE',{maximumFractionDigits:1})} kWh/100km</strong> · <strong style="color:#fb923c">${fmt(costPer100)} €/100km</strong>`;
+    } else {
+      document.getElementById('consumption').textContent = '—';
+      document.getElementById('consumption-sub').textContent = 'km-Stand eingeben ↓';
+      document.getElementById('cost-per-100').textContent = '—';
+      document.getElementById('cost-per-100-sub').textContent = 'km-Stand eingeben ↓';
+      if (!isNaN(kmStart) && !isNaN(kmEnd) && kmEnd <= kmStart) {
+        result.innerHTML = '<span style="color:var(--red)">⚠ End-km muss größer als Start-km sein.</span>';
+      } else {
+        result.innerHTML = 'Gib beide km-Stände ein um Verbrauch und Kosten pro 100 km zu berechnen.';
+      }
+    }
+  }
+
+  function fmt(n) { return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function render() {
+    const filtered = currentFilter === 'all' ? sessions : sessions.filter(s => s.type === currentFilter);
+
+    // Stats
+    const totalCost = sessions.reduce((a, s) => a + s.cost, 0);
+    const totalKwh = sessions.reduce((a, s) => a + s.kwh, 0);
+    const avgPrice = totalKwh > 0 ? totalCost / totalKwh : null;
+
+    document.getElementById('total-cost').textContent = fmt(totalCost) + ' €';
+    document.getElementById('total-kwh').textContent = totalKwh.toLocaleString('de-DE', {maximumFractionDigits: 1}) + ' kWh';
+    document.getElementById('avg-price').textContent = avgPrice ? fmt(avgPrice) + ' €' : '—';
+    document.getElementById('total-sessions').textContent = sessions.length;
+
+    // Table
+    const wrap = document.getElementById('table-wrap');
+    if (filtered.length === 0) {
+      wrap.innerHTML = '<div class="empty-state"><span class="icon">🔌</span>Keine Einträge gefunden.</div>';
+    } else {
+      wrap.innerHTML = `<table>
+        <thead><tr>
+          <th>Datum</th>
+          <th>Ort</th>
+          <th>Typ</th>
+          <th>kWh</th>
+          <th>€/kWh</th>
+          <th>Kosten</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+        ${filtered.map(s => {
+          const pricePerKwh = s.kwh > 0 ? s.cost / s.kwh : 0;
+          const typeClass = s.type === 'DC' ? 'badge-dc' : s.type === 'Zuhause' ? 'badge-home' : 'badge-ac';
+          const d = new Date(s.date);
+          const dateStr = d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'2-digit' });
+          return `<tr>
+            <td>${dateStr}</td>
+            <td>${s.location}${s.note ? '<br><span style="color:var(--muted);font-size:0.65rem">' + s.note + '</span>' : ''}</td>
+            <td><span class="badge ${typeClass}">${s.type}</span></td>
+            <td class="kwh-value">${s.kwh.toLocaleString('de-DE', {maximumFractionDigits:1})} kWh</td>
+            <td style="color:var(--muted)">${fmt(pricePerKwh)} €</td>
+            <td class="cost-value">${fmt(s.cost)} €</td>
+            <td>
+              <button class="btn-del" onclick="editSession(${s.id})" style="margin-right:0.3rem;color:var(--accent);border-color:var(--accent)">✎</button>
+              <button class="btn-del" onclick="deleteSession(${s.id})">✕</button>
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    renderChart();
+  }
+
+  function renderChart() {
+    // Group by month
+    const monthly = {};
+    sessions.forEach(s => {
+      const key = s.date.substring(0, 7);
+      if (!monthly[key]) monthly[key] = 0;
+      monthly[key] += s.cost;
+    });
+
+    const keys = Object.keys(monthly).sort().slice(-8);
+    const chart = document.getElementById('bar-chart');
+
+    if (keys.length === 0) {
+      chart.innerHTML = '<div class="empty-state" style="width:100%;font-size:0.75rem;padding:1rem;">Noch keine Daten für Chart</div>';
+      return;
+    }
+
+    const max = Math.max(...keys.map(k => monthly[k]));
+    chart.innerHTML = keys.map(k => {
+      const val = monthly[k];
+      const height = Math.max(4, (val / max) * 100);
+      const [y, m] = k.split('-');
+      const label = new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('de-DE', {month:'short'});
+      return `<div class="bar-wrap">
+        <div class="bar" style="height:${height}px" data-tip="${fmt(val)} €"></div>
+        <div class="bar-label">${label}</div>
+      </div>`;
+    }).join('');
+  }
+
+  render();
+
+  // Register inline Service Worker for offline support
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      const CACHE = 'ladekosten-v1';
+      const FONTS = [
+        'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap'
+      ];
+      self.addEventListener('install', e => {
+        e.waitUntil(caches.open(CACHE).then(c => c.addAll(FONTS).catch(() => {})));
+        self.skipWaiting();
+      });
+      self.addEventListener('activate', e => {
+        e.waitUntil(caches.keys().then(keys =>
+          Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+        ));
+        self.clients.claim();
+      });
+      self.addEventListener('fetch', e => {
+        e.respondWith(
+          caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+        );
+      });
+    `;
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl, {scope: './'})
+      .catch(() => {}); // fails silently on file:// protocol, works on GitHub Pages
+  }
+
+  // iOS install hint (shown once)
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  const hintShown = localStorage.getItem('pwa-hint-shown');
+  if (isIOS && !isStandalone && !hintShown) {
+    localStorage.setItem('pwa-hint-shown', '1');
+    const banner = document.createElement('div');
+    banner.innerHTML = `
+      <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1c2537;border:1px solid #2a3a55;border-radius:16px;padding:1rem 1.25rem;font-family:'Space Mono',monospace;font-size:0.72rem;color:#e2e8f0;z-index:200;width:min(340px,88vw);box-shadow:0 8px 32px rgba(0,0,0,0.5);text-align:center;line-height:1.7">
+        <div style="font-size:1.4rem;margin-bottom:0.4rem">📲</div>
+        <strong style="color:#00e5ff">Zum Home-Bildschirm hinzufügen:</strong><br>
+        Tippe auf <strong>Teilen</strong> (□↑) → <strong>„Zum Home-Bildschirm"</strong><br>
+        <button onclick="this.parentElement.parentElement.remove()" style="margin-top:0.75rem;background:transparent;border:1px solid #2a3a55;border-radius:8px;padding:0.3rem 1rem;color:#64748b;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.7rem">Schließen</button>
+      </div>`;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 12000);
+  }
+</script>
+</body>
+</html>
